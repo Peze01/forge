@@ -1,0 +1,13 @@
+{
+  "name": "forge-evals",
+  "version": "1.0.0",
+  "description": "Eval harness for the Forge Claude Code plugin",
+  "scripts": {
+    "eval": "ts-node runner.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}

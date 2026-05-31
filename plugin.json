@@ -1,0 +1,87 @@
+{
+  "name": "forge",
+  "version": "1.0.0",
+  "description": "Adversarial brainstorming engine for Claude Code. Runs ideas through parallel Builder, Critic, and User Advocate subagents to surface weaknesses before a sprint begins.",
+  "commands": [
+    {
+      "name": "forge",
+      "file": ".claude/commands/forge.md",
+      "description": "Adversarial brainstorming — runs an idea through Builder, Critic, and User Advocate subagents in parallel and produces a structured IdeaReport with confidence score"
+    },
+    {
+      "name": "forge-ship",
+      "file": ".claude/commands/forge-ship.md",
+      "description": "Ships the active IdeaReport to Jira as a ticket and clears the session"
+    }
+  ],
+  "agents": [
+    {
+      "name": "forge-builder",
+      "file": ".claude/agents/forge-builder.md",
+      "description": "Builder subagent — extends ideas, surfaces non-obvious angles, estimates effort"
+    },
+    {
+      "name": "forge-critic",
+      "file": ".claude/agents/forge-critic.md",
+      "description": "Critic subagent — finds weaknesses, risks, and failure modes; labels each [blocking] or [resolvable]"
+    },
+    {
+      "name": "forge-user-advocate",
+      "file": ".claude/agents/forge-user-advocate.md",
+      "description": "User Advocate subagent — challenges ideas from the end user's perspective"
+    }
+  ],
+  "skills": [
+    {
+      "name": "feature-brainstorm",
+      "file": ".claude/skills/feature-brainstorm.md",
+      "flag": "(default — no flag needed)",
+      "description": "Technical feature evaluation: feasibility, sprint estimation, performance and security risks, user adoption"
+    },
+    {
+      "name": "general-brainstorm",
+      "file": ".claude/skills/general-brainstorm.md",
+      "flag": "--skill general",
+      "description": "Domain-agnostic evaluation: business strategy, market fit, incentive alignment, adoption"
+    }
+  ],
+  "hooks": [
+    {
+      "script": "hooks/session-start.js",
+      "trigger": "session_start",
+      "description": "Prints a Forge ready message at the start of each Claude Code session"
+    },
+    {
+      "script": "hooks/post-ticket-eval.js",
+      "trigger": "post_tool_use",
+      "description": "After forge_create_ticket runs, prompts the user to record the output in evals/results/ for regression tracking"
+    }
+  ],
+  "mcp_prerequisites": [
+    {
+      "name": "atlassian",
+      "description": "Atlassian's official remote MCP server. Required for /forge ship. Connect once via browser OAuth — no API tokens or local build needed.",
+      "url": "https://mcp.atlassian.com/v1/mcp",
+      "tools_used": ["getVisibleJiraProjects", "createJiraIssue"],
+      "settings_json": {
+        "mcpServers": {
+          "atlassian": {
+            "url": "https://mcp.atlassian.com/v1/mcp",
+            "type": "http"
+          }
+        }
+      }
+    }
+  ],
+  "install_requires": {
+    "node": ">=18.0.0",
+    "packages": {
+      "evals/": {
+        "typescript": "^5.0.0",
+        "ts-node": "^10.9.0",
+        "@types/node": "^20.0.0"
+      }
+    }
+  },
+  "eval_command": "cd evals && npm install && npx ts-node runner.ts"
+}
