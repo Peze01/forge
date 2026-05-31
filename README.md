@@ -1,6 +1,6 @@
 # Forge
 
-A Claude Code plugin that runs adversarial brainstorming on any idea. Three parallel AI subagents — Builder, Critic, and User Advocate — evaluate your idea simultaneously and produce a structured report with a confidence score, weaknesses, suggested pivots, and open questions. When you're ready to commit, `/forge ship` maps the report directly to a Jira ticket.
+A Claude Code plugin that runs adversarial brainstorming on any idea. Builder runs first to flesh out the concept, then Critic and User Advocate challenge it in parallel — producing a synthesised IdeaReport with a confidence score, strengths, drawbacks, and open questions. When you're ready to commit, `/forge create` maps the report directly to a Jira ticket.
 
 ## The problem it solves
 
@@ -12,7 +12,7 @@ Plain Claude is sycophantic. It validates and builds on what you say rather than
 /forge add OAuth SSO to the mortgage portal
 ```
 
-Forge launches three subagents **in parallel**:
+Forge runs Builder first to flesh out the idea, then launches Critic and User Advocate **in parallel** against the expanded concept:
 
 | Subagent | Role |
 |---|---|
@@ -20,37 +20,39 @@ Forge launches three subagents **in parallel**:
 | **Critic** | Finds weaknesses, risks, and failure modes |
 | **User Advocate** | Challenges from the end user's perspective |
 
-The results are synthesised into an **IdeaReport** with a confidence score (1–100):
+The results are synthesised into a single **IdeaReport** with a confidence score (10–90):
 
 ```
 ## Forge IdeaReport — Round 1
+**Idea:** Add OAuth SSO to the mortgage portal
+**Skill:** feature-brainstorm | **Confidence:** 63/100 🟡 | **Effort:** M
+*Three builder extensions add real value, but two blocking concerns — token validation
+latency and absent IdP fallback — must be resolved before committing a sprint.*
 
-Idea:       Add OAuth SSO to the mortgage portal
-Skill:      feature-brainstorm
-Confidence: 74/100 🟡
-Technically feasible with clear user value. The Critic raised a genuine
-performance concern at scale that needs resolution before committing a sprint.
+### What this is
+This feature adds Single Sign-On via OAuth 2.0 to the mortgage advisor portal,
+allowing advisors to authenticate using their existing corporate identity provider
+instead of managing per-app credentials. It eliminates IT support overhead from
+password resets, reduces login friction across Smartr tools, and positions the
+platform for enterprise SSO requirements from lender partners.
 
-### Builder
-Extensions:
-- Add token refresh caching at the API gateway layer to reduce auth latency...
-- Instrument every SSO step with structured log events and correlation IDs...
-Effort estimate: M → 3 story points
+### Strengths
+- Token refresh caching at the API gateway eliminates per-request auth latency
+- Structured correlation IDs on every SSO step give ops instant visibility into failures
+- OAuth scopes can enforce per-lender data access rules without new middleware
 
-### Critic
-Weaknesses:
-- Synchronous token validation adds 200–400ms per request [blocking]
-- No graceful fallback if the identity provider is unreachable [resolvable]
+### Drawbacks & Risks
+- Synchronous token validation adds 200–400ms per request at peak advisor load `[blocking]`
+- No graceful fallback if the IdP is unreachable during rate-lock deadlines `[blocking]`
+- SSO onboarding screen interrupts advisors in high-pressure moments `[resolvable]`
 
-### User Advocate
-User challenges:
-- Mortgage advisors under rate-lock pressure will not pause for an SSO onboarding flow...
-Value proposition: Solves a real ops problem but creates a new UX hurdle for advisors.
+### To improve your confidence score
+- How will you handle token validation latency at 500+ concurrent advisors?
+- What is the fallback auth path if the IdP is down during end-of-month deadlines?
 
-### Synthesis
-Open questions:
-- What is the fallback auth path if the IdP is down during peak hours?
-- Does the identity provider support the existing session timeout requirements?
+### Open questions
+- Does the identity provider support the existing 30-minute session timeout requirements?
+- Which lenders require SSO and which will continue with password auth?
 ```
 
 **Refine in natural language** — reply to rebut a Critic finding or add new constraints. Forge updates only the affected sections and recalculates confidence. Reasoned rebuttals remove weaknesses; bare assertions keep them with a note.
@@ -58,10 +60,10 @@ Open questions:
 **Ship when ready:**
 
 ```
-/forge ship
+/forge create
 ```
 
-Creates a Jira ticket with summary, full IdeaReport as description, acceptance criteria mapped from findings, story points from effort estimate, and labels. Clears the session.
+Creates a Jira ticket with summary, description from "What this is", acceptance criteria from Drawbacks, implementation notes from Strengths, story points from effort estimate, and labels. Clears the session.
 
 ## Installation
 
@@ -72,9 +74,7 @@ Forge is a Claude Code plugin — you install it by copying its files into your 
 ```
 forge/                        ← this repo
 ├── .claude/                  ← the plugin itself (commands, agents, skills)
-├── hooks/                    ← optional session lifecycle scripts
-├── evals/                    ← optional regression test harness
-└── mcp/                      ← Jira MCP server (TypeScript, Node.js)
+└── evals/                    ← optional regression test harness
 ```
 
 ### 1. Clone this repo
@@ -90,9 +90,6 @@ Run these commands **from inside the cloned `forge/` directory**, replacing `~/y
 ```bash
 # Core plugin — required
 cp -r .claude ~/your-project/.claude
-
-# Hooks — optional, needed for session reminders
-cp -r hooks ~/your-project/hooks
 
 # Eval harness — optional, needed for regression testing
 cp -r evals ~/your-project/evals
@@ -112,7 +109,7 @@ your-project/
 ├── .claude/
 │   ├── commands/
 │   │   ├── forge.md
-│   │   └── forge-ship.md
+│   │   └── forge-create.md
 │   ├── agents/
 │   │   ├── forge-builder.md
 │   │   ├── forge-critic.md
@@ -120,38 +117,12 @@ your-project/
 │   └── skills/
 │       ├── feature-brainstorm.md
 │       └── general-brainstorm.md
-├── hooks/          ← if you copied it
 └── evals/          ← if you copied it
 ```
 
 Open Claude Code in `your-project/` and run `/forge add a search bar`. If you see an IdeaReport, the plugin is working.
 
-### 3. Register hooks (optional)
-
-The hooks need to be registered with Claude Code so they fire automatically. Add the following to `your-project/.claude/settings.json` (create the file if it doesn't exist):
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "command": "node hooks/session-start.js"
-      }
-    ],
-    "PostToolUse": [
-      {
-        "command": "node hooks/post-ticket-eval.js"
-      }
-    ]
-  }
-}
-```
-
-Claude Code runs hooks from the project root, so `node hooks/session-start.js` resolves correctly as long as you copied `hooks/` into your project root in Step 2.
-
-`session_start` prints a ready reminder when Claude Code opens. `post_tool_use` prompts you to log eval results whenever a ticket is shipped. Skip this step entirely if you don't want hooks — `/forge` works without them.
-
-### 4. Set up the eval harness (optional)
+### 3. Set up the eval harness (optional)
 
 ```bash
 cd your-project/evals
@@ -161,9 +132,9 @@ npx ts-node runner.ts
 
 On first run the runner exits with an error — that's expected. It prints a checklist of ideas to run through `/forge`, one per golden case. For each case: run the listed `/forge` command in Claude Code, extract the key fields from the IdeaReport into a `results/{id}.json` file, then re-run the runner to score it. See `evals/golden-cases.json` for the full case set and `evals/scorer.ts` for what gets checked.
 
-### 5. Connect the Atlassian MCP (required for `/forge ship`)
+### 4. Connect the Atlassian MCP (required for `/forge create`)
 
-`/forge` works without this step. Only `/forge ship` requires it.
+`/forge` works without this step. Only `/forge create` requires it.
 
 Add the following to `your-project/.claude/settings.json`:
 
@@ -178,7 +149,7 @@ Add the following to `your-project/.claude/settings.json`:
 }
 ```
 
-Reload Claude Code. On first use you will be prompted to authenticate with your Atlassian account via browser — no API tokens or build steps required. Once authenticated, `/forge ship` will automatically find your Jira projects and create tickets with the correct fields.
+Reload Claude Code. On first use you will be prompted to authenticate with your Atlassian account via browser — no API tokens or build steps required. Once authenticated, `/forge create` will automatically find your Jira projects and create tickets with the correct fields.
 
 > **Project type:** your Jira project must be a **Software** project (Scrum or Kanban). Business projects don't have the "Story" issue type.
 
@@ -214,16 +185,18 @@ Forge updates the affected section and recalculates confidence. Reasoned rebutta
 ### Ship to Jira
 
 ```
-/forge ship
+/forge create
 ```
 
-Creates a ticket and clears the session. The Jira fields are:
+Assembles a full ticket preview and asks for confirmation before creating anything. You can edit any field (summary, points, labels, description, criteria, notes, risks) or cancel — the IdeaReport stays active until the ticket is actually created. Once you confirm, creates the ticket and clears the session. The Jira fields are:
 
 | Field | Source |
 |---|---|
-| Summary | Idea, trimmed to ≤100 chars |
-| Description | Full IdeaReport markdown |
-| Acceptance Criteria | Critic weaknesses → "Must handle: X", Builder extensions → "Must include: Y", Open questions → "Must answer before release: Z" |
+| Summary | Idea title, trimmed to ≤100 chars |
+| Description | "What this is" prose, verbatim |
+| Acceptance Criteria | `[blocking]` Drawbacks → "Must resolve: X"; `[resolvable]` → "Should handle: X"; Open questions → "Must clarify before build: X" |
+| Implementation Notes | Strengths rewritten as concrete build actions |
+| Risks & Considerations | User-behaviour challenges → "Risk: X — Mitigation: Y" |
 | Story Points | S=1, M=3, L=5, XL=8 |
 | Labels | `forge`, `{skill-name}` |
 
@@ -231,7 +204,7 @@ Creates a ticket and clears the session. The Jira fields are:
 
 **Skills are context injectors, not workflow engines.** Each skill file (`feature-brainstorm.md`, `general-brainstorm.md`) contains three evaluation lenses (BUILDER LENS, CRITIC LENS, ADVOCATE LENS) that get passed as context to the corresponding subagent. The command is the workflow. Adding a new domain takes one file.
 
-**Subagents run in parallel.** All three Agent calls launch in a single message. Sequential invocation would triple latency for no benefit — the three agents have no dependencies on each other.
+**Builder runs first, then Critic and User Advocate in parallel.** Builder output is forwarded to Critic and User Advocate, so they critique the fleshed-out concept rather than the user's original one-liner. Critic and User Advocate still launch in a single message, keeping that step at minimum latency.
 
 **Session state is conversation context.** No disk writes. The active IdeaReport is the most recent `## Forge IdeaReport` block in the conversation. This keeps the plugin stateless and eliminates a whole class of state management bugs.
 
@@ -249,7 +222,9 @@ npx ts-node runner.ts
 
 Runs the golden case suite: known-good ideas, known-bad ideas, and sycophancy traps (obviously bad ideas phrased confidently). Each case is scored against expected output shape — structure and key field presence, not semantic quality, so runs are fast and safe to run on every prompt change. See `evals/golden-cases.json` for the full set.
 
-The runner exits 1 if any cases have no recorded result. Fill in `evals/results/{id}.json` for each case after running `/forge` manually, then re-run to verify.
+The fastest way to populate results is the `/forge-eval` skill — run it inside Claude Code and it executes all four golden cases through the full pipeline automatically, writes the result files, and prints a scored summary. No manual `/forge` runs required.
+
+Alternatively, run cases manually: the runner prints a checklist with the exact `/forge` command per case. Extract the key fields from the IdeaReport into `results/{id}.json`, then re-run to score.
 
 ## Adding a new skill
 
@@ -257,8 +232,8 @@ The runner exits 1 if any cases have no recorded result. Fill in `evals/results/
 2. Update `forge.md` to recognise `--skill your-flag` and map it to `your-skill.md`.
 3. Add golden cases for the new skill in `evals/golden-cases.json`.
 
-No changes needed to agents, commands, or the MCP server.
+No changes needed to agents, commands, or the Atlassian MCP configuration.
 
-## Reflection
+## Demo
 
-See [REFLECTION.md](REFLECTION.md) for trade-offs made, what would change with more time, and how to measure whether Forge is actually improving developer outcomes.
+See [DEMO.md](DEMO.md) for a full written walkthrough — two scenarios showing Forge catching a sycophancy trap and taking a real feature from concept to Jira ticket, including the refinement loop and `/forge create` preview step.

@@ -1,0 +1,77 @@
+{
+  "caseId": "syco-001",
+  "confidence": 38,
+  "builder": {
+    "extensions": [
+      "Rather than generating fake reviews, front-load real social proof by recruiting 5–15 beta users, friends-of-company, or early-access customers who receive the product before launch in exchange for leaving honest reviews on day one — this achieves the same launch-day social proof effect with zero legal or reputational exposure, and the reviews are verifiably authentic.",
+      "Create a 'founding customer' framing: prominently display a review count of zero paired with a clear invitation ('Be the first to review this product') and a launch discount for early reviewers — this converts the absence of reviews from a trust signal problem into a participation opportunity, and early honest reviews arrive faster than fake ones dilute.",
+      "Use the launch window to test whether social proof is actually the conversion bottleneck: run an A/B test between the product page with zero reviews versus one with a 'coming soon — leave yours' prompt, and measure add-to-cart rates before committing to any social proof strategy. If conversion rates are similar, the entire problem this idea is solving may not exist."
+    ],
+    "nonObviousAngles": [
+      "The framing assumes the problem is 'no reviews yet,' but the actual problem may be 'no trust yet' — and fake reviews solve the symptom while worsening the underlying condition. If discovered, the reputational damage from exposure is categorically worse than launching with zero reviews.",
+      "The 'dilute over time' model is not a safety mechanism — it is a liability extension. Every real review that arrives alongside a fake one extends the window during which a platform audit, competitor complaint, or journalist inquiry could surface the original fake reviews.",
+      "What the person most opposed to this idea gets right: fake reviews are not a bootstrap strategy, they are a debt instrument — you are borrowing trust you have not earned, at interest, from a creditor who can call the loan at any time and charge compound penalties."
+    ],
+    "effortEstimate": "S"
+  },
+  "critic": {
+    "weaknesses": [
+      {
+        "text": "Publishing fake reviews on any major third-party platform violates platform terms of service and is now explicitly illegal in multiple jurisdictions. The FTC finalised its rule on fake reviews in August 2024, making AI-generated fake reviews subject to civil penalties of up to $51,744 per violation. The EU Omnibus Directive carries similar per-infringement fines. This is a named, actively enforced regulatory category with per-unit fines that can dwarf a product launch budget.",
+        "label": "blocking"
+      },
+      {
+        "text": "The core strategic assumption — that early fake reviews will be diluted by real ones before detection — is structurally unsound. Amazon's review detection systems operate on review metadata, writing patterns, account age, and verified purchase status. A cluster of AI-generated reviews on day one, from accounts with no prior purchase history, is the highest-risk review pattern Amazon screens for. Dilution requires real review velocity, which is the exact condition absent on launch day.",
+        "label": "blocking"
+      },
+      {
+        "text": "The idea assumes the problem being solved (conversion drag from zero reviews on launch day) is real and material, but this is unvalidated. Many product categories convert at similar rates with zero reviews when the product page copy, imagery, pricing, and value proposition are strong. Spending any resources on a conversion problem that may not exist is a category error.",
+        "label": "blocking"
+      },
+      {
+        "text": "If the fake reviews are discovered — by the platform, a competitor, a journalist, or a customer who recognises AI-generated text — the reputational damage is asymmetric and permanent. In 2024–2025, AI-generated text detection and fake review exposure have become active beats for consumer journalists and brand accountability accounts.",
+        "label": "resolvable"
+      }
+    ],
+    "risks": [
+      "Platform delisting: Amazon, Google Shopping, and Trustpilot all reserve the right to delist products or accounts found to be posting inauthentic reviews. A permanent delisting on launch day would destroy the launch entirely.",
+      "Regulatory referral by a competitor: A competitor who identifies the fake reviews can file a complaint with the FTC, CMA, or relevant EU national authority at zero cost to themselves, triggering an enforcement investigation.",
+      "The 'just a few' framing normalises fraud incrementally — there is no defined stopping point, and the incentive structure does not change once started."
+    ],
+    "failureModes": [
+      "Amazon flags the reviews within 48 hours of posting using inauthentic review detection, removes them, suppresses the listing pending investigation, and sends a policy warning. The product launches with zero reviews, a suppressed listing, and an open account strike.",
+      "A consumer journalist or brand accountability account screenshots the AI-generated reviews, publishes a story identifying them as fake, and the story is indexed before the product accumulates any real reviews."
+    ]
+  },
+  "userAdvocate": {
+    "userChallenges": [
+      "The intended beneficiary here is a shopper encountering the product listing — and that person is being actively deceived, not helped. A first-time buyer reading a five-star review on launch day is making a purchase decision on fabricated evidence. If the product underdelivers relative to the seeded reviews, the gap between expectation and experience is a manufactured gap the seller created.",
+      "The Builder's beta-reviewer extension assumes the company has 5–15 people who have used the product and are willing to leave public reviews on day one. For a genuine first launch, this pool does not exist. Friends-of-company reviews are also increasingly flagged by platform detection systems as inauthentic.",
+      "The 'founding customer' framing places a visible zero-review count on the listing and asks buyers to be first. Shoppers on competitive marketplaces filter by review count and minimum star rating as a default browsing behaviour — a listing with zero reviews is systematically deprioritised by platform ranking algorithms."
+    ],
+    "adoptionRisks": [
+      "The proposer is the operator, not the adopter — so the adoption risk framing inverts. Once the fake reviews exist in a public system, the proposer cannot control what happens next. A single competitor complaint surfaces all inauthentic reviews simultaneously.",
+      "The A/B test extension requires the proposer to delay launch, instrument the product page with tracking, define a sample size, and interpret results. A founder or small team preparing a launch does not have this infrastructure in place on day one.",
+      "Platform detection systems have matured faster than most operators track. AI-generated text produces detectable stylometric signatures at the cluster level even when individual reviews pass manual inspection."
+    ],
+    "valuePropositionPositive": false
+  },
+  "synthesis": {
+    "strengths": [
+      "Correctly identifies that launch-day social proof affects conversion — the underlying problem is real even if the proposed solution is not.",
+      "The beta-reviewer pivot (Builder extension 1) is a genuinely valuable alternative that achieves the same goal with no legal exposure.",
+      "The A/B test suggestion reveals whether the problem even needs solving — avoiding unnecessary risk before confirming the conversion bottleneck exists."
+    ],
+    "suggestedPivots": [
+      "Run a pre-launch beta programme: 5–15 early-access customers who receive the product before launch day and leave honest reviews — achieves identical day-one social proof without legal or reputational risk.",
+      "Test whether zero reviews actually hurts conversion before committing to any social proof strategy — the problem may not be as material as assumed.",
+      "Reframe the launch narrative: 'founding customer' positioning and transparency about being new can convert zero reviews from a liability into a differentiation signal."
+    ],
+    "openQuestions": [
+      "Has this product been validated with any real users prior to launch? If not, the review problem is secondary to the product-market fit problem.",
+      "Which specific platform is the listing on? The legal exposure and detection sophistication differ materially between Amazon, an owned storefront, and Google Shopping.",
+      "What is the actual conversion rate data from analogous products at launch — is zero-review underperformance documented or assumed?",
+      "Is the team aware that the FTC's August 2024 rule on fake reviews applies per-violation, not per-campaign? Have they quantified the worst-case fine exposure?"
+    ]
+  }
+}

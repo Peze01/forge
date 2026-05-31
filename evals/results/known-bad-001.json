@@ -1,0 +1,79 @@
+{
+  "caseId": "known-bad-001",
+  "confidence": 24,
+  "builder": {
+    "extensions": [
+      "Before building an AI product, conduct a data audit to map exactly what behavioural signals are present, their coverage across customer segments, and their density over time — this determines whether the dataset is large and clean enough to produce a model that outperforms publicly available alternatives, which is the only reason a third-party buyer would pay for it.",
+      "Define the third-party buyer's job-to-be-done before deciding what the AI product does: if buyers are in the same industry as your customers, the trained model may reveal competitive intelligence about your customers' businesses — segment the buyer market to exclude direct competitors of your customers as a minimum viable risk control.",
+      "Structure the go-to-market as a data-licensing deal first, before building an AI product at all: approach two or three prospective third-party buyers, offer them access to aggregate, anonymised insights for a flat fee, and use that transaction to validate willingness to pay and define the actual use case — this decouples commercial validation from the much larger investment of model training and productisation."
+    ],
+    "nonObviousAngles": [
+      "The framing assumes the value is in the AI model, but the actual scarce asset is the dataset itself — a trained model can be replicated or approximated by a well-resourced buyer, but a proprietary dataset with rare behavioural signals cannot. Selling data access under a governed API (with consent and legal cover) may generate more durable revenue with far less build cost than a standalone AI product.",
+      "The most important objection to this idea is not technical — it is that customers did not agree to have their usage data monetised for the benefit of someone else's business. The person most opposed to this idea is a customer who discovers their behaviour trained a model their competitor bought — they are not wrong to be angry, and the business has no clean answer."
+    ],
+    "effortEstimate": "XL"
+  },
+  "critic": {
+    "weaknesses": [
+      {
+        "text": "The consent assumption is almost certainly false and, if wrong, makes the entire idea illegal. Using data collected for one purpose (operating a product) to train a commercial AI sold to third parties is secondary processing under GDPR Article 6 and CCPA's 'selling' definition. Unless the original consent notice explicitly named this use case, the legal basis fails — not marginally, not arguably, but categorically.",
+        "label": "blocking"
+      },
+      {
+        "text": "The idea has no defined product. 'We have data, therefore we can sell a model' is not a product thesis — it is an asset looking for a use case. Without knowing what the AI product does, there is no way to assess whether the data is relevant, whether buyers exist, what the pricing model is, or what the competitive set is. Every downstream decision is contingent on this definition.",
+        "label": "blocking"
+      },
+      {
+        "text": "The 'proprietary data as moat' assumption collapses if the data is not actually distinctive. The logic requires that this dataset covers a domain where public data is sparse, that volume and signal density are sufficient for the specific modelling task, and that the third-party buyer cannot replicate the dataset by purchasing it from a data broker or collecting it themselves within 12–18 months. None of these conditions are verified.",
+        "label": "blocking"
+      },
+      {
+        "text": "The reputational risk to the existing customer base is not mentioned anywhere in the idea. Existing customers did not sign up to have their usage behaviour commercialised and sold to third parties. Even if consent language technically permits this, when it becomes public the customer base is likely to react adversely — trading a speculative new revenue stream against the retention and trust of the existing primary revenue source.",
+        "label": "resolvable"
+      },
+      {
+        "text": "The go-to-market path is undefined at a level that creates runway risk. Data licensing and AI product sales are fundamentally different commercial motions with different buyers, procurement processes, legal review requirements, pricing benchmarks, and sales cycles. Starting with one to validate the other does not produce clean signal.",
+        "label": "resolvable"
+      }
+    ],
+    "risks": [
+      "Regulatory enforcement action: GDPR supervisory authorities and the FTC have both taken enforcement action against companies that repurposed customer data for AI training without adequate legal basis. A finding of unlawful processing requires deletion of the training data and potentially the model — destroying the investment entirely.",
+      "Customer churn as soon as the product is announced: existing customers who discover their usage data was used to train a product sold to third parties — potentially including their own competitors — have a rational incentive to churn immediately.",
+      "ML capability gap delays time-to-revenue past the point of justification: training and maintaining a production-quality model that outperforms public alternatives requires senior ML engineering talent most product companies do not currently have.",
+      "Foundation model commoditisation undercuts the moat within 12 months: GPT-4o, Gemini, and open-weight models are improving rapidly. A proprietary model that outperforms these today may not in 18 months without continuous retraining investment."
+    ],
+    "failureModes": [
+      "Legal review returns a negative opinion on consent; the entire pipeline stops. The company has already spent time on data audits, buyer conversations, and early ML experimentation — with the additional risk that the data audit itself was also unlawful processing.",
+      "A journalist or customer advocate publishes 'Company X sold AI trained on your private data to Company Y' before the company has a prepared communications response. Customers cancel; reputational damage to the core business exceeds the total projected revenue from the AI product.",
+      "The model is built, buyers are found, and a pilot runs — but the model's predictions are not significantly better than what the buyer can get from a general-purpose foundation model with a well-engineered prompt. The buyer declines to convert. No second buyer is in the pipeline."
+    ]
+  },
+  "userAdvocate": {
+    "userChallenges": [
+      "The 'user' this idea harms is the existing customer whose data is being monetised — not the third-party buyer. That customer almost certainly did not sign up expecting their behavioural data to be packaged and sold. When customers discover their data was sold — via a press release, a competitor product launch, or a data breach notice — they will not re-read their consent agreement; they will feel betrayed and churn.",
+      "The existing customer has no say in what their behavioural data is used to build. If the third-party buyer turns out to be a competitor, an insurer pricing risk, an employer screening candidates, or an advertiser profiling behaviour, the existing customer is actively harmed by a product built from their own data."
+    ],
+    "adoptionRisks": [
+      "Enterprise buyers in 2025 face their own regulatory and reputational risk from using training data with unclear consent chains. GDPR Article 6, the EU AI Act's transparency requirements, and US state privacy laws all create liability for downstream buyers who use improperly obtained training data. A buyer's legal team will ask for data provenance documentation before signing — and 'it was in our ToS' is not documentation that survives legal review.",
+      "The Builder's 'data-licensing deal first' extension surfaces the adoption risk even faster: a data-licensing deal requires disclosing what the data is, where it came from, and how it was collected. A sophisticated buyer doing due diligence will discover the consent gap before the company does. The 'validate willingness to pay' step and the 'discover you have a legal problem' step are the same step."
+    ],
+    "valuePropositionPositive": false
+  },
+  "synthesis": {
+    "strengths": [
+      "The data audit extension is the single most valuable near-term action — it either confirms the moat exists or collapses the premise before any significant resources are committed.",
+      "The inference-only API architecture (if the product proceeds) is the correct technical structure — it retains the data asset, reduces IP leakage, and creates recurring revenue rather than a one-time license.",
+      "The tiered access model (aggregated benchmark data at low tier, real-time prediction at high tier) is the right commercial structure for validating willingness-to-pay without full product build."
+    ],
+    "suggestedPivots": [
+      "Commission an external data-use legal audit against the actual consent language in the privacy policy before any model training begins — do not proceed on the assumption that consent holds without a written legal opinion.",
+      "Conduct 15–20 structured buyer discovery interviews with plausible third-party buyer categories before any product investment — establish specific decision context, current data source, cost, and willingness-to-pay.",
+      "If legal and commercial validation succeeds, partner with an existing data marketplace (AWS Data Exchange, Snowflake Marketplace) to distribute as data licensor rather than product operator — trading revenue share for avoiding the full second-product operational burden."
+    ],
+    "openQuestions": [
+      "Has the existing privacy policy and ToS been reviewed by external counsel for compatibility with secondary commercial AI training? If not, this is the first gate.",
+      "Who specifically would buy this product, what decision would they use it for, and what are they currently using — at what cost — to make that decision today?",
+      "At what re-consent participation rate does the training dataset become too small to produce reliable signal, and is that rate achievable given the customer base's typical engagement with opt-in communications?"
+    ]
+  }
+}

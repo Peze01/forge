@@ -85,14 +85,14 @@ export function scoreOutput(output: ForgeOutput): ScorerResult {
 
   const confidenceOk =
     typeof output.confidence === "number" &&
-    output.confidence >= 8 &&
-    output.confidence <= 92;
+    output.confidence >= 10 &&
+    output.confidence <= 90;
   checks.push(chk(
     "confidence_in_range",
     confidenceOk,
     confidenceOk
-      ? `Confidence ${output.confidence} is within [8, 92]`
-      : `Confidence ${output.confidence} is outside valid range [8, 92]`
+      ? `Confidence ${output.confidence} is within [10, 90]`
+      : `Confidence ${output.confidence} is outside valid range [10, 90]`
   ));
 
   const blocking = blockingWeaknessCount(output);

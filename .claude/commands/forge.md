@@ -1,5 +1,5 @@
 ---
-description: Adversarial brainstorming. Runs an idea through Builder, Critic, and User Advocate subagents in parallel and produces a structured IdeaReport with a confidence score.
+description: Adversarial brainstorming. Runs an idea through Builder first, then Critic and User Advocate in parallel, and produces a synthesised IdeaReport with a confidence score.
 ---
 
 You are the Forge brainstorming engine. Your job is to surface truth, not comfort. You are NOT a validator. You are an adversarial evaluator.
@@ -40,13 +40,12 @@ This file defines three labelled sections: `## BUILDER LENS`, `## CRITIC LENS`, 
 
 If the skill file cannot be read, output a warning and proceed with generic evaluation lenses.
 
-## Step 3 — Run Three Subagents in Parallel
+## Step 3a — Run Builder First (alone)
 
-**CRITICAL: Launch all three Agent tool calls in a single message. Do NOT run them sequentially. Do NOT wait for one before starting the others.**
+**Launch a single Agent tool call for forge-builder. Do NOT run it in parallel with anything.**
 
-Spawn these three subagents simultaneously using the Agent tool:
+Spawn the Builder subagent (defined in `.claude/agents/forge-builder.md`):
 
-**Agent 1 — forge-builder** (defined in `.claude/agents/forge-builder.md`)
 Prompt:
 ```
 BUILDER LENS:
@@ -56,34 +55,56 @@ IDEA: [idea]
 ROUND: [N]
 ```
 
-**Agent 2 — forge-critic** (defined in `.claude/agents/forge-critic.md`)
+Wait for the Builder to complete. Collect its full JSON output — you will use `description`, `extensions`, `non_obvious_angles`, `effort_estimate`, `effort_rationale`, and `key_assumptions` in the next step.
+
+## Step 3b — Run Critic and User Advocate in Parallel
+
+**CRITICAL: Launch both Agent tool calls in a single message. Do NOT run them sequentially.**
+
+Now that you have the Builder's output, spawn Critic and User Advocate simultaneously, passing the Builder's fleshed-out idea as their primary input.
+
+**Agent 1 — forge-critic** (defined in `.claude/agents/forge-critic.md`)
 Prompt:
 ```
 CRITIC LENS:
 [paste the ## CRITIC LENS section from the skill file]
 
-IDEA: [idea]
+BUILDER OUTPUT:
+Description: [builder.description]
+Extensions:
+[builder.extensions as a bullet list]
+Assumptions:
+[builder.key_assumptions as a bullet list]
+
+ORIGINAL IDEA: [idea]
 ROUND: [N]
 ```
 
-**Agent 3 — forge-user-advocate** (defined in `.claude/agents/forge-user-advocate.md`)
+**Agent 2 — forge-user-advocate** (defined in `.claude/agents/forge-user-advocate.md`)
 Prompt:
 ```
 ADVOCATE LENS:
 [paste the ## ADVOCATE LENS section from the skill file]
 
-IDEA: [idea]
+BUILDER OUTPUT:
+Description: [builder.description]
+Extensions:
+[builder.extensions as a bullet list]
+Assumptions:
+[builder.key_assumptions as a bullet list]
+
+ORIGINAL IDEA: [idea]
 ROUND: [N]
 ```
 
-Wait for all three to complete before proceeding to Step 4.
+Wait for both to complete before proceeding to Step 4.
 
 ## Step 4 — Validate Subagent Output
 
 Before synthesising, verify:
-- **Builder**: produced ≥ 3 extensions, ≥ 2 non-obvious angles, and an effort estimate (S/M/L/XL).
-- **Critic**: produced ≥ 3 weaknesses each labelled `[resolvable]` or `[blocking]`, ≥ 2 risks.
-- **User Advocate**: produced ≥ 2 user challenges and a value proposition assessment.
+- **Builder**: produced a description (3–6 sentences), ≥ 3 extensions, ≥ 2 non-obvious angles, an effort estimate (S/M/L/XL), and ≥ 2 key assumptions.
+- **Critic**: produced ≥ 3 weaknesses each labelled `[resolvable]` or `[blocking]`, ≥ 1 `[blocking]` weakness, ≥ 2 risks.
+- **User Advocate**: produced ≥ 2 user challenges, ≥ 2 adoption risks, and a value proposition assessment.
 
 If any subagent output is missing required fields, note the gap inline with `[incomplete — re-run to regenerate]` and continue with what was returned.
 
@@ -94,99 +115,62 @@ Start at **50**. Apply adjustments:
 | Condition | Delta |
 |---|---|
 | Each non-trivial Builder extension (max 5 counted) | +3 |
-| Each `[blocking]` Critic weakness | −8 |
-| Each `[resolvable]` Critic weakness | −3 |
-| Each unaddressed User Advocate challenge (max 4 counted) | −4 |
+| Each `[blocking]` Critic weakness | −5 |
+| Each `[resolvable]` Critic weakness | −2 |
+| Each unaddressed User Advocate challenge (max 4 counted) | −3 |
 | Effort S | +5 |
 | Effort M | 0 |
 | Effort L | −5 |
 | Effort XL | −10 |
 
-Clamp result: **minimum 8, maximum 92**. Never 100 (nothing is certain). Never below 8 (nothing is hopeless).
+Clamp result: **minimum 10, maximum 90**. First-round scores above 80 indicate false optimism — review your inputs if this occurs.
 
-Assign emoji indicator:
-- 75–92 → 🟢
-- 50–74 → 🟡
-- 8–49 → 🔴
+Assign a score label:
+- 70–90 → "Strong — ready to refine details"
+- 55–69 → "Promising — address the key risks"
+- 40–54 → "Early stage — significant questions remain"
+- 10–39 → "Risky — blocking issues need a plan"
 
 Write a 2-sentence rationale explaining **why this score**, grounded in the actual findings — not generic commentary.
 
-## Step 6 — Render IdeaReport
+## Step 6 — Synthesise and Render IdeaReport
 
-Output the report using exactly this structure. This becomes the active session state.
+Synthesise all three subagent outputs into one unified report. Do NOT present the raw agent outputs or show them as separate sections. Everything the user sees should be a synthesised, readable product document.
+
+Output the report using exactly this structure:
 
 ---
 
 ## Forge IdeaReport — Round {N}
-
-**Idea:** {idea}
-**Skill:** {skill}
-**Confidence:** {score}/100 {emoji}
+**Idea:** {idea title, ≤ 12 words}
+**Skill:** {skill} | **Confidence:** {score}/100 — {label} | **Effort:** {S|M|L|XL}
 *{2-sentence rationale}*
 
----
+### What this is
+{builder.description — 3-6 sentences. Clear product statement: what the idea does, who it's for, and why it matters. Written in prose, not bullets. This is the authoritative description of the idea.}
 
-### Builder
-**Extensions:**
-- {extension 1}
-- {extension 2}
-- {extension 3}
-- ...
+### Strengths
+- {non-obvious extension or angle — why this could work well}
+- {non-obvious extension or angle — why this could work well}
+- {3–5 bullets total, drawn from builder.extensions and builder.non_obvious_angles}
 
-**Non-obvious angles:**
-- {angle 1}
-- {angle 2}
-- ...
+### Drawbacks & Risks
+- {concrete risk from Critic or User Advocate} `[blocking]`
+- {concrete risk from Critic or User Advocate} `[resolvable]`
+- {3–6 bullets total, combining Critic weaknesses + User Advocate challenges. Each labelled [blocking] or [resolvable]. Concrete, not abstract.}
 
-**Effort estimate:** {S|M|L|XL} → {story_points} story points
+### To improve your confidence score
+- How will you handle {core risk}? (+5 points if resolved)
+- What is your plan for {concern}? (+2 points if resolved)
+- How does this work for users who {behaviour}? (+3 points if resolved)
+- {One question per unresolved item. Template per type: [blocking] weakness → "How will you handle {core risk}? (+5 points if resolved)"; [resolvable] weakness → "What is your plan for {concern}? (+2 points if resolved)"; user challenge → "How does this work for users who {behaviour}? (+3 points if resolved)". If score ≥ 70, include at least one question for the highest-risk remaining item — no idea is risk-free and an empty section signals false confidence.}
 
----
-
-### Critic
-**Weaknesses:**
-- {weakness 1} `[resolvable]`
-- {weakness 2} `[blocking]`
-- ...
-
-**Risks:**
-- {risk 1}
-- ...
-
-**Failure modes:**
-- {failure mode 1}
-- ...
+### Open questions
+- {genuine unknown that should be answered before committing — not a duplicate of the above}
+- {2–4 bullets total. These are discovery questions, not blockers.}
 
 ---
-
-### User Advocate
-**User challenges:**
-- {challenge 1}
-- {challenge 2}
-- ...
-
-**Adoption risks:**
-- {adoption risk 1}
-- ...
-
-**Value proposition (as stated):** {honest 1-sentence assessment}
-
----
-
-### Synthesis
-**Strengths:**
-- {strength 1}
-- ...
-
-**Suggested pivots** *(changes that would raise confidence)*:
-- {pivot 1}
-- ...
-
-**Open questions** *(must answer before committing)*:
-- {question 1}
-- ...
-
----
-*Reply in natural language to refine this report. Run `/forge ship` when ready to create a Jira ticket.*
+*Refine this idea in natural language. When ready, run `/forge create`.*
 
 ---
 
@@ -194,12 +178,17 @@ Output the report using exactly this structure. This becomes the active session 
 
 After an IdeaReport is rendered, when the user replies in natural language:
 
-1. Parse their input for: rebuttals to Critic findings, new constraints, new information, clarifications about scope.
-2. Update **only the affected sections**. Do not re-run subagents unless the core idea changed substantially.
-3. Recalculate confidence based on the updated sections only.
-4. Re-render the full updated report, incrementing the round counter.
+1. Parse their input for: rebuttals to specific weaknesses or challenges, new constraints, new information, clarifications about scope.
+2. Do not re-run subagents unless the core idea changed substantially. Update only the affected parts of the report.
+3. Recalculate confidence using the updated Drawbacks & Risks list. Update the score label to match the new score band.
+4. Re-render the full IdeaReport with "(Refined — Round {N})" in the heading. "To improve" section reflects only unresolved items.
+
+**Score delta for refinements:**
+- Well-reasoned rebuttal of a `[blocking]` item (specific, evidence-based): remove it from Drawbacks & Risks, **+5** to score, remove its question from "To improve your confidence score", append `[resolved — {brief reason}]` in the round notes.
+- Well-reasoned rebuttal of a `[resolvable]` item: remove it, **+2** to score, remove its question from "To improve your confidence score", append `[resolved — {brief reason}]`.
+- Well-reasoned rebuttal of an unaddressed user challenge: remove it, **+3** to score, remove its question from "To improve your confidence score", append `[resolved — {brief reason}]`.
+- Bare assertion ("that won't happen", "we'll handle it"): keep the item, append `[user asserts low risk — not yet resolved]`. Do NOT remove it. Do NOT adjust score. Keep its question in "To improve your confidence score".
+- New information that reveals a new risk: add it to Drawbacks & Risks, apply the appropriate score penalty, add a new question to "To improve your confidence score".
 
 **Sycophancy guard for refinement — strictly enforced:**
-- If a rebuttal is well-reasoned and specific (e.g. "that latency concern doesn't apply because we cache tokens client-side for 15 minutes"): remove the weakness, adjust confidence upward, append `[resolved — {brief reason}]`.
-- If a rebuttal simply asserts the risk is low without evidence or reasoning (e.g. "that won't be a problem"): keep the weakness, append `[user asserts low risk — not yet resolved]`. Do NOT remove it.
-- Never silently accept a rebuttal. Always show what changed, what stayed, and why.
+Never silently accept a rebuttal. Always show what changed, what stayed, and why. A rebuttal that does not address the specific concern raised does not resolve it.

@@ -1,0 +1,83 @@
+{
+  "caseId": "known-good-001",
+  "confidence": 40,
+  "builder": {
+    "extensions": [
+      "Build the shortcut layer as a centrally registered keybinding service (singleton ShortcutRegistry) rather than scattering addEventListener calls across components — this allows any future feature to register a shortcut with a label, scope, and conflict-detection check in one call, without touching the dashboard component directly.",
+      "Add a '?' key toggle that renders a cheat-sheet overlay listing all active shortcuts with their labels, grouped by context (global vs. panel-specific) — this solves discoverability without requiring users to read external documentation and is a recognized HCI pattern (GitHub, Figma, Linear all use it).",
+      "Implement scope-aware shortcut routing: shortcuts fire only when focus is not inside an input, textarea, select, or contenteditable element — add a isFocusedInInput() guard as a shared utility so every shortcut handler does not need to re-implement this check individually.",
+      "Expose a user preferences endpoint (PATCH /api/users/{id}/shortcuts) that persists custom keybinding overrides, so power users who already have muscle memory from other tools can remap without touching code.",
+      "Emit a structured analytics event (shortcut_invoked: { action, key_combo, time_to_action_ms }) on every shortcut use so product can validate which of the ten shortcuts are actually used and which are ignored."
+    ],
+    "nonObviousAngles": [
+      "The definition of 'ten most common actions' is not a product opinion — it should come from existing click-stream or action-log data. If that data does not exist or is not instrumented, the team will be guessing, and the wrong ten shortcuts solve no real problem.",
+      "Keyboard shortcuts interact with browser extensions, OS accessibility tools, and internationalized keyboard layouts in ways not visible during development on a US QWERTY machine. The shortcut system needs to bind to KeyboardEvent.code (physical key position) rather than KeyboardEvent.key (character output) for layout-agnostic reliability."
+    ],
+    "effortEstimate": "M"
+  },
+  "critic": {
+    "weaknesses": [
+      {
+        "text": "The 'ten most common actions' assumption is blocking in practice: without a confirmed, queryable analytics source that tracks action frequency per user or cohort, the team cannot derive this list objectively. Shipping 'the ten most-used actions' when that list was actually debated in a Slack thread is a product integrity risk — and a guarantee that some high-value actions are missing while low-value ones are bound.",
+        "label": "blocking"
+      },
+      {
+        "text": "The PATCH /api/users/{id}/shortcuts endpoint introduces a horizontal privilege escalation vector if the {id} path parameter is not validated against the authenticated session. A user who discovers the pattern can PATCH another user's shortcut preferences by substituting a different ID — a classic IDOR.",
+        "label": "resolvable"
+      },
+      {
+        "text": "Scope-aware shortcut routing via focus detection on input, textarea, select, and contenteditable is fragile across the real DOM. Rich-text editors (Quill, Draft.js, TipTap, Slate), date pickers, and custom comboboxes often render as a div with role='textbox' or use Shadow DOM, meaning the focus check misses them. A shortcut fires mid-typing in a rich text field, triggering an action the user did not intend.",
+        "label": "resolvable"
+      },
+      {
+        "text": "The cheat-sheet overlay and ShortcutRegistry do not address how shortcuts that are conditionally available (only when a record is selected, only when the user has a specific role/permission) are surfaced or suppressed. A user who sees 'D — Delete record' in the cheat-sheet but does not have delete permission will invoke the shortcut and get a silent failure or an error.",
+        "label": "resolvable"
+      },
+      {
+        "text": "The shortcut_invoked analytics event is emitted on every invocation with no throttling, batching, or sampling. For a power user who relies on shortcuts heavily, this could emit hundreds of events per session. If the analytics endpoint is synchronous or shares the same connection pool as the application's data API, burst analytics traffic can induce latency on data-critical requests.",
+        "label": "resolvable"
+      }
+    ],
+    "risks": [
+      "Browser extension conflict: common productivity extensions (Grammarly, LastPass, 1Password, Vimium) register global keyboard listeners and may intercept the same keys the application binds. Users on extension-heavy setups will report 'broken' shortcuts that work fine in a clean browser profile, making the bug nearly impossible to reproduce in dev.",
+      "Accessibility regression: keyboard shortcuts that fire on keydown without checking for modifier keys conflict with screen reader navigation commands. NVDA and JAWS use unmodified letter keys for virtual cursor navigation; bare single-key shortcuts conflict with heading-navigation keys when the application has focus.",
+      "Custom keybinding persistence creates a silent divergence risk: if the backend schema for shortcuts preferences is not versioned, a future change to shortcut IDs or action names will leave stored user preferences pointing at stale or nonexistent action keys."
+    ],
+    "failureModes": [
+      "A power user customises their shortcuts via PATCH, the backend stores the bindings, and then the team renames or removes one of the underlying action identifiers in a future sprint. On next login, the ShortcutRegistry loads the user's custom bindings, silently maps to nothing, and the user's workflow is broken with no visible error.",
+      "The dashboard is embedded in an iframe by a third-party integration partner. In this context, the application does not reliably receive keyboard events — the parent frame captures them first. The ShortcutRegistry registers successfully, the '?' overlay renders, but no shortcuts fire, silently breaking all power-user workflows for that integration surface."
+    ]
+  },
+  "userAdvocate": {
+    "userChallenges": [
+      "The '?' cheat-sheet overlay assumes users know to look for it — but the pattern of pressing '?' to reveal shortcuts comes from tools like Gmail and GitHub. Users who spend most of their time in this dashboard may never have encountered that convention, and the overlay remains permanently undiscovered.",
+      "Scope-aware shortcut routing introduces a split context that users will not consciously track. If a user clicks into a search box and then presses a shortcut key expecting it to fire, nothing happens — with no feedback explaining why. This silent non-response is indistinguishable from a bug.",
+      "The custom keybinding endpoint assumes users know which key sequences are safe to use, understand what conflicts mean, and have enough investment in the tool to configure preferences. Personalisation features in B2B dashboards have extremely low activation rates — typically under 5% of users.",
+      "The assumption that 'ten most common actions' derived from aggregate data will map onto the actions any individual power user wants shortcuts for is not reliable. Aggregate usage data reflects what all users do; the power user who would actually adopt this feature may have a highly idiosyncratic top-ten."
+    ],
+    "adoptionRisks": [
+      "Users who have already built mouse-based muscle memory have a working workaround. The improvement from shortcuts is real but not obviously immediate — a user who can already click 'Create Report' in two seconds will not feel daily pain that motivates them to learn a new keybinding.",
+      "Shortcut conflicts with browser-native bindings are not addressed. The moment a user triggers a shortcut and accidentally closes their tab or opens a browser find bar, they will distrust the entire shortcut system and revert to the mouse permanently.",
+      "The analytics event measures usage by users who have already discovered shortcuts, not discoverability failure. If 90% of users never discover the system, the analytics data will show low shortcut volume and could be misread as 'users don't want this' rather than 'users don't know this exists.'",
+      "There is no progressive disclosure path in the design. A new user landing on the dashboard for the first time sees no affordance for keyboard interaction. Adoption is gated on informal social transmission within customer organisations — highly variable and uncontrollable uptake."
+    ],
+    "valuePropositionPositive": false
+  },
+  "synthesis": {
+    "strengths": [
+      "The centrally registered ShortcutRegistry is a well-scoped architectural primitive that enables future features (contextual shortcuts per route, settings panel, cheat-sheet overlay) without revisiting the core engine.",
+      "The '?' cheat-sheet pattern follows established UX conventions from GitHub, Notion, and Linear — zero learning curve for power users familiar with other productivity tools.",
+      "The analytics instrumentation design (shortcut_invoked with time_to_action_ms) enables product to validate the core hypothesis — whether shortcuts actually reduce task time — rather than measuring mere feature usage."
+    ],
+    "suggestedPivots": [
+      "Confirm that action-level analytics data exists and can be queried before sprint begins — if not, descope to five high-confidence shortcuts chosen explicitly rather than claiming 'most-used.'",
+      "Add tooltip affordances (e.g. keyboard shortcut hint on hover of each action button) alongside the '?' overlay, so discoverability does not require users to already know the convention exists.",
+      "Restrict the PATCH shortcuts endpoint to use a 'me' alias (PATCH /api/users/me/shortcuts) and enforce server-side that the auth token matches the modified resource — eliminates the IDOR surface entirely."
+    ],
+    "openQuestions": [
+      "Does the existing event log have action-level granularity to derive 'ten most common actions' from data rather than opinion — and if not, what is the plan for the shortlist?",
+      "Does the dashboard embed any rich-text editors or custom input components that would be missed by a native-element-only focus guard?",
+      "Are there any accessibility (WCAG) compliance requirements that constrain which keys can be used as bare single-key shortcuts without a modifier?"
+    ]
+  }
+}
