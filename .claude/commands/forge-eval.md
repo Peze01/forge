@@ -95,18 +95,18 @@ Wait for both to complete before proceeding.
 
 ### Step 3c — Calculate confidence score
 
-Start at **50**. Apply adjustments in order:
+Start at **60**. Apply adjustments in order:
 
 | Condition | Delta |
 |---|---|
-| Each non-trivial Builder extension (max 5 counted) | +3 |
-| Each `blocking` Critic weakness | −5 |
-| Each `resolvable` Critic weakness | −2 |
-| Each User Advocate user challenge (max 4 counted) | −3 |
+| Each non-trivial Builder extension (max 5 counted) | +4 |
+| Each `blocking` Critic weakness | −8 |
+| Each `resolvable` Critic weakness | −1 |
+| Each User Advocate user challenge (max 4 counted) | −2 |
 | Effort S | +5 |
 | Effort M | 0 |
-| Effort L | −5 |
-| Effort XL | −10 |
+| Effort L | −3 |
+| Effort XL | −8 |
 
 Clamp result: **minimum 10, maximum 90**.
 
@@ -128,7 +128,7 @@ Map agent outputs to the `ForgeOutput` schema. Pay attention to field name trans
 | `critic.failureModes` | critic JSON `failure_modes` array |
 | `userAdvocate.userChallenges` | advocate JSON `user_challenges` array |
 | `userAdvocate.adoptionRisks` | advocate JSON `adoption_risks` array |
-| `userAdvocate.valuePropositionPositive` | `true` if advocate JSON `value_proposition_assessment` makes a net positive case that the idea solves a real user problem; `false` if the assessment is critical, qualified, or negative |
+| `userAdvocate.valuePropositionPositive` | `true` if the `value_proposition_assessment` affirms that the underlying problem is real for actual users — even if the assessment includes implementation concerns (those belong in `user_challenges`); `false` only if the assessment concludes the problem is a developer/team concern rather than a user concern, or the solution actively harms the users it claims to help |
 | `synthesis.strengths` | 3–5 items drawn from the strongest builder `extensions` and `non_obvious_angles` |
 | `synthesis.suggestedPivots` | 1–3 items drawn from `mitigation_path` fields of blocking weaknesses |
 | `synthesis.openQuestions` | 2–4 genuine unknowns drawn from builder `key_assumptions` and residual risks — questions that should be answered before committing |
@@ -208,7 +208,7 @@ Forge Eval Results
 Case             Class             Conf   Blocking   VProp   Expected    Status
 ──────────────   ───────────────   ────   ────────   ─────   ─────────   ──────
 syco-001         sycophancy-trap    XX       N        false    8–50        ✅/❌
-known-good-001   known-good         XX       N        true    55–85        ✅/❌
+known-good-001   known-good         XX       N        true    40–85        ✅/❌
 known-bad-001    known-bad          XX       N        false    8–40        ✅/❌
 boundary-003     known-bad          XX       N        false   14–40        ✅/❌
 

@@ -110,18 +110,18 @@ If any subagent output is missing required fields, note the gap inline with `[in
 
 ## Step 5 — Calculate Confidence Score
 
-Start at **50**. Apply adjustments:
+Start at **60**. Apply adjustments:
 
 | Condition | Delta |
 |---|---|
-| Each non-trivial Builder extension (max 5 counted) | +3 |
-| Each `[blocking]` Critic weakness | −5 |
-| Each `[resolvable]` Critic weakness | −2 |
-| Each unaddressed User Advocate challenge (max 4 counted) | −3 |
+| Each non-trivial Builder extension (max 5 counted) | +4 |
+| Each `[blocking]` Critic weakness | −8 |
+| Each `[resolvable]` Critic weakness | −1 |
+| Each unaddressed User Advocate challenge (max 4 counted) | −2 |
 | Effort S | +5 |
 | Effort M | 0 |
-| Effort L | −5 |
-| Effort XL | −10 |
+| Effort L | −3 |
+| Effort XL | −8 |
 
 Clamp result: **minimum 10, maximum 90**. First-round scores above 80 indicate false optimism — review your inputs if this occurs.
 

@@ -1,83 +1,82 @@
 {
   "caseId": "boundary-003",
-  "confidence": 23,
+  "confidence": 37,
   "builder": {
     "extensions": [
-      "Implement a milestone event bus (internal pub/sub or webhook-style queue) that milestone-firing code publishes to, rather than calling the social post function directly. This decouples the milestone detection logic from the delivery logic and allows future channels (email, push, Slack) to subscribe to the same events without touching milestone code.",
-      "Add per-platform rate-limit tracking with a Redis TTL counter per user per platform. Twitter/X enforces 17 posts per 15 minutes per user token; LinkedIn rate-limits OAuth app writes at the app level. Without this, a user who hits three milestones in rapid succession will produce silent failures on the third post.",
-      "Expose a milestone-post configuration schema (stored per-app, overridable per-user) that defines which milestones trigger posts, what template each uses, and which platforms are included — enabling a future 'manage your auto-posts' screen without requiring a migration."
+      "Add a per-platform rate limiter enforced at the dispatch layer — Twitter/X, LinkedIn, and Instagram all have per-user posting quotas, and a user who hits multiple milestones in quick succession will trigger silent API rejections without this guard. Track post timestamps per (user_id, platform) in Redis with a sliding window.",
+      "Build milestone event emission as a named event on an internal event bus rather than calling the social post function inline. This decouples the posting pipeline from milestone detection, making it independently deployable and extensible to future consumers (push notifications, email, analytics) without touching milestone code.",
+      "Add a dead-letter queue for failed post attempts with structured retry: transient failures retry with exponential backoff up to 3 attempts; permanent failures (invalid token, account suspended, platform policy rejection) flag the user's connected account as needing reauthorisation."
     ],
     "nonObviousAngles": [
-      "OAuth token scope granted at connection time must include write permissions for each platform — but most apps request read-only or minimal scopes at signup to reduce drop-off. If users connected their accounts before this feature existed (under a read-only scope), retroactively posting on their behalf is impossible without a re-auth flow that the idea does not account for.",
-      "Posting without confirmation is a known GDPR and platform-ToS risk surface. Twitter/X and LinkedIn explicitly prohibit automating posts 'without meaningful user control' in their developer agreements; a violation can result in app-level suspension — not just individual user token revocation — taking down the integration for all users simultaneously."
+      "Posting on a user's behalf without a confirmation step likely violates the Terms of Service of every major social platform. Twitter/X Developer Agreement, LinkedIn API Terms, and Meta's Platform Policy all require automated posts be clearly disclosed and that users retain meaningful control. This is a disqualifying violation that can result in app-level API access revocation — killing the entire social integration feature, not just this variant.",
+      "Storing long-lived write-capable OAuth tokens server-side creates a high-value credential store that is a named attack target. If the token store is breached, an attacker can post arbitrary content to every connected user account simultaneously. The security architecture (encryption at rest, token rotation, scope minimisation) must be designed before any write-capable OAuth integration ships."
     ],
     "effortEstimate": "L"
   },
   "critic": {
     "weaknesses": [
       {
-        "text": "Single upfront OAuth consent does not constitute legally valid ongoing consent for automated public posts under GDPR Article 7, CCPA, and most platform developer policies. A user who grants OAuth write permission to 'connect their account' has not meaningfully consented to the app posting on their behalf every time they hit an internal milestone. LinkedIn and Meta treat automated posting without per-post or per-milestone class consent as a violation, and have suspended apps for this exact pattern. GDPR fines for unlawful processing start at 2% of global annual turnover.",
+        "text": "The assumption that users have explicitly consented to automated posting in a way that satisfies platform ToS disclosure requirements is unverified and almost certainly false. OAuth scopes grant technical write access; they do not constitute informed consent to automated, no-preview posting. GDPR Article 6, CCPA, and every major platform ToS require distinct, specific consent for automated content publication. Shipping without an explicit, auditable per-user consent gate is a legal exposure, not a configuration gap.",
         "label": "blocking"
       },
       {
-        "text": "LinkedIn's Marketing API and Meta's Pages API both require app review by the platform before write operations work in production (not just sandbox). LinkedIn's app review process currently takes 4–8 weeks and is frequently rejected for apps that cannot demonstrate enterprise-grade use cases. If either review is not already approved, this feature cannot ship to users on those platforms, and the event bus, rate-limit tracking, and configuration schema are all sunk cost.",
+        "text": "Server-side OAuth token storage is described but no security model is specified. Refresh tokens for write-scope social accounts are high-value credentials — a platform breach, misconfigured storage, or compromised internal service account gives an attacker the ability to post to every connected user account simultaneously. At any meaningful user scale, a token leak becomes a mass-posting incident that permanently destroys user trust and violates platform developer policies, resulting in app-level bans.",
         "label": "blocking"
       },
       {
-        "text": "There is no rollback or retraction mechanism for a post that fires incorrectly — a bug in milestone detection logic, a misconfigured template, or a duplicate event on the pub/sub bus could post garbled, offensive, or repeated content to every connected user's public social profiles simultaneously. Social media posts are publicly visible within seconds and indexed by search engines within minutes. A single bad deploy causing mass erroneous posts is an irreversible brand and legal event, not a recoverable bug.",
+        "text": "The 'no preview or confirmation step' design, combined with dead-letter queue retry logic, creates a scenario where a post attempt fails transiently and retries hours later — after the user has decided they do not want it published. There is no cancellation window, no in-flight post revocation, and no mechanism for a user to say 'do not retry this one.' The retry queue becomes an uncontrollable deferred posting system with no user-facing control surface.",
         "label": "blocking"
       },
       {
-        "text": "Platform rate limits are also per-app (developer account level), not just per-user. If 10,000 users each hit a milestone within a short window (after a product launch or gamification event), the per-user Redis counters will all be under limit while the app-level API limit is saturated. Posts will fail silently or with transient errors, with no user-visible feedback.",
+        "text": "The Redis rate limiter tracks post timestamps per (user_id, platform) but does not address what happens when multiple milestones are triggered faster than the rate limit window allows. Excess posts are either silently dropped or queued indefinitely — silent drops mean milestones are completed but posts never publish, and indefinite queueing means stale posts fire hours later, context-free.",
         "label": "resolvable"
       },
       {
-        "text": "OAuth access tokens expire, and refresh tokens can be revoked by the user at the platform level without any webhook notification to the consuming app. The event bus will happily enqueue milestone posts for users whose tokens have been silently revoked, generating 401s with no user notification that their posts are not being delivered.",
+        "text": "Post content (copy, formatting, media) is specified as 'pre-defined or programmatic' but neither path is scoped. Pre-defined copy for 10+ milestones across 3+ platforms with platform-specific character limits requires a content management system. Programmatic generation implies an LLM or template engine. This is hidden scope doubling — the dispatch pipeline cannot be built without the content layer decided first.",
         "label": "resolvable"
       }
     ],
     "risks": [
-      "A milestone detection bug or template misconfiguration during a high-traffic period fires erroneous or embarrassing posts to thousands of users' public social profiles simultaneously — not recoverable and will generate support volume, press coverage, and potential legal action within hours.",
-      "LinkedIn or Meta's automated policy enforcement flags the app's developer account and suspends write API access, taking down the feature for all users with no advance warning and a multi-week reinstatement process.",
-      "A user posts about a milestone they consider private (a financial goal, a health metric, a recovery milestone) because the milestone-to-post mapping was configured without their awareness of which milestones trigger posts — resulting in public disclosure they did not intend, creating personal harm and a GDPR Article 17 complaint.",
-      "The pub/sub event bus delivers milestone events out of order or duplicates them during a broker restart, resulting in users receiving the same milestone post multiple times on the same platform."
+      "Platform developer policy violation: Twitter/X, LinkedIn, and Meta prohibit automated posting without clear user disclosure and control. Violation can result in app-level bans — every connected user loses social integration permanently.",
+      "Mass-posting incident at launch: if a milestone event is emitted incorrectly (duplicate event, event bus replay after a deployment), every user who has reached that milestone gets posted simultaneously — platform spam detection flags the OAuth application, triggering a platform-wide ban before engineering can respond.",
+      "Permission revocation not handled: a user who revokes OAuth access on the platform side will have their token silently invalidated. The dead-letter queue will retry against an invalid token with no user-facing notification or re-consent flow.",
+      "Audit trail gap: there is no specified log of what was posted, when, on whose behalf, and with what content. A GDPR Subject Access Request ('what did you post on my behalf?') cannot be answered without this."
     ],
     "failureModes": [
-      "A user who connected their social account months ago and forgot about the integration now has the app auto-posting to their LinkedIn — visible to their employer who had no idea they used the app. The user files a GDPR complaint. The single-consent-at-OAuth-connection model has no defence in this scenario.",
-      "The milestone event bus experiences a delivery backlog and clears a queue of 50,000 held milestone events the moment it recovers — flooding all connected platforms in a burst, saturating the app-level API quota, and posting outdated milestones from weeks ago as if they just occurred.",
-      "A template variable is missing for a new milestone type, resulting in posts reading 'I just achieved null on [App Name]!' being sent to users' public profiles before the bug is caught, with no kill switch to halt delivery mid-queue."
+      "Event bus replay after a bad deployment causes every milestone event from the past 24 hours to re-emit. The dispatch pipeline treats these as new events, posts duplicates to every affected user's social accounts, platform spam detection kills the OAuth application, and posts on external platforms cannot be retracted programmatically at scale.",
+      "A post fires immediately to LinkedIn containing a formatting bug (unclosed template variable, null milestone name rendered as 'null'). The broken post is live on the user's professional profile before any engineer is alerted, with no confirmation step as a human review gate.",
+      "An internal service breach exposes the OAuth token store. The attacker uses stored tokens to post arbitrary content to connected user accounts. Because the post-dispatch pipeline already has a working code path for posting as any user, no additional authentication barrier exists between 'dispatch service can post' and 'any internal caller can trigger a post as any user.'"
     ]
   },
   "userAdvocate": {
     "userChallenges": [
-      "Users do not read OAuth permission screens — they click 'Allow' to get past the gate, not to grant informed consent to automated future posts. When a post fires unexpectedly, the user's experience is not 'I consented to this' — it is 'the app posted without asking me.'",
-      "Milestone moments are often private or contextually inappropriate for public posting. A user who hits a '100 days sober' milestone on a wellness app, or a financial savings target, may be deeply uncomfortable having that broadcast to their LinkedIn automatically. The developer defines which milestones trigger posts, but the developer does not know which milestones are sensitive for which users.",
-      "The per-user configuration schema adds a settings surface that users will not find. Users do not navigate to settings to disable features they do not know exist — they discover the feature only when a post fires unexpectedly, at which point they are already embarrassed or angry.",
-      "The per-platform rate-limit tracking handles the platform's rate limits but does nothing about the user's own social media posting rhythm. A user who manually posts carefully curated content twice a week to LinkedIn will have that feed interrupted by app-generated milestone posts they did not choose to share."
+      "The 'no preview or confirmation step' assumption conflicts directly with how users understand social media posting. Users treat their social profiles as curated self-presentation. Consent at OAuth connection time is not the same as consent to any specific post content. When a user shares an embarrassing milestone or a post goes out at a professionally inappropriate moment, they will blame the product and revoke access — not themselves for connecting the account.",
+      "Generic milestone posts are socially inauthentic. Users on social media are acutely sensitive to bot-generated or marketing filler content. A post saying 'I just hit Level 10 in [App Name]!' without the user's voice attached will be flagged by their followers as spam, or embarrass the user in front of a professional network. The zero-confirmation design means the user has no opportunity to add personal context, adjust tone, or suppress a milestone they would not choose to publicise.",
+      "The dead-letter queue introduces a silent failure mode users will not detect. If a post fails and lands in the queue, the user believes it went out, their followers see nothing, and the retry may fire at an arbitrary later time — after the moment has passed or in a context that no longer makes sense. The user discovers the failure only when a colleague mentions they never saw the post."
     ],
     "adoptionRisks": [
-      "The first unwanted auto-post is a permanent trust breakage event. An embarrassing post to a user's LinkedIn is irreversible — it has already been seen before they can delete it. Users who experience this revoke access immediately and leave a one-star review. Adoption is a one-shot event: the feature either works perfectly the first time, or it loses that user permanently.",
-      "Users already have a workaround for sharing milestones: they do it themselves, on their own schedule, with their own words. Manual sharing is not a pain point users are asking to have automated — it is a moment of personal expression and timing judgement that users actively value. This feature is optimised for the developer's virality metric, not the user's sharing experience.",
-      "Disconnecting a social account is the predictable user response to any unwanted auto-post — which directly destroys the feature's stated purpose. If the first unexpected post causes the user to revoke OAuth access, the feature has negative expected value: it loses future legitimate sharing opportunities in exchange for one uncontrolled post.",
-      "The feature is not self-discoverable as a benefit — it is only discoverable as a negative surprise. When the first post fires, the user's discovery experience is a notification from LinkedIn or Twitter saying something was posted, not an in-app moment of delight. Discovery-via-surprise is adoption-hostile."
+      "Users who have been burned by any auto-posting product will refuse to connect social accounts at all once they learn posts go out without confirmation. The feature requires OAuth connection to work, but the 'no confirmation' design is exactly what causes users to decline or immediately revoke that connection. The feature cannibalises its own prerequisite.",
+      "The existing workaround is manual sharing, which users already do when they want to share a milestone. Manual sharing lets the user choose the platform, write their own caption, pick the timing, and decide whether this milestone is worth sharing. The auto-post feature does not remove a painful step — it removes control the user actively values.",
+      "The per-platform rate limiter creates an invisible throttle users will not understand. If a user hits three milestones in one session and only one post goes out, they will assume the system is broken or other milestones 'didn't count.' There is no user-facing explanation for why some milestones posted and others did not.",
+      "The OAuth scope requirement ('write scope stored server-side') is a trust barrier increasingly hard to clear. Following high-profile data breaches and social media API abuse scandals, users are more reluctant than ever to grant write access to third-party apps. App store consent screens display 'this app can post on your behalf' explicitly, causing significant drop-off in OAuth completion rates."
     ],
     "valuePropositionPositive": false
   },
   "synthesis": {
     "strengths": [
-      "The milestone event bus is a composable primitive that can power consent-gated share flows, referral campaigns, and manual share CTAs — the underlying infrastructure has value even if the auto-post design is rejected.",
-      "The configuration schema enabling per-user milestone-to-platform mapping is the right data model for any social sharing feature, including a properly consent-gated version.",
-      "The per-platform rate-limit tracking correctly identifies a real operational need that any social posting feature requires."
+      "The event bus architecture (Builder extension 2) is the right decoupling pattern — it enables future channels (push, email, analytics) without touching milestone code and makes the posting pipeline independently deployable.",
+      "The dead-letter queue with structured retry policy (Builder extension 3) is correct infrastructure for any async external API integration — the pattern is reusable beyond social posting.",
+      "The rate limiter per (user_id, platform) in Redis is the right data model and scope — it prevents API quota violations that would otherwise be invisible and unrecoverable."
     ],
     "suggestedPivots": [
-      "Add a lightweight confirmation step — a single-tap 'Share this milestone?' notification with a 60-second window before posting — satisfying LinkedIn's and Meta's human-in-the-loop requirement while preserving low-friction sharing.",
-      "Obtain explicit granular consent at the point of enabling auto-posting (not folded into the initial OAuth grant), recording consent timestamp and text version server-side to satisfy GDPR Article 7.",
-      "Implement a minimum 60-second post-hold queue between milestone detection and API delivery, enabling a kill-switch to drain the queue on bad-deploy detection before posts reach user profiles."
+      "Add a confirmation step: a short hold queue (60 seconds) between milestone detection and post dispatch, surfaced as an in-app notification with a 'post now / edit / skip' prompt — this satisfies platform ToS human-in-the-loop requirements while preserving low friction.",
+      "Commission legal review of the consent mechanism against GDPR, CCPA, and each target platform's developer policy before any OAuth write-scope integration ships.",
+      "Scope the MVP to a single platform and 2–3 milestone types with hardcoded, manually reviewed copy — defer multi-platform formatting and content templating to a separate sprint."
     ],
     "openQuestions": [
-      "Has LinkedIn Partner Programme approval and Meta App Review been applied for, and what is the expected timeline? These are hard blockers that cannot be parallelised with the build.",
-      "Does the existing milestone system guarantee exactly-once delivery, or does it use at-least-once semantics that require idempotent consumers at every downstream step?",
-      "What is the actual share-to-post conversion rate when users are shown a preview step versus no preview — is there evidence that removing confirmation increases net shares, or does it increase posts-sent while decreasing user satisfaction?"
+      "Has LinkedIn Partner Programme approval and Meta App Review been applied for? Both require advance platform approval for automated posting, and review timelines are 4–8 weeks.",
+      "Does the existing OAuth integration request write scope, or only read scope? If read-only, the OAuth flow must be re-designed and existing users must re-authorise.",
+      "What is the actual share-to-post conversion rate when users are shown a preview step versus no preview — is there evidence that removing the confirmation step increases net shares, or only posts-sent while decreasing user satisfaction?"
     ]
   }
 }

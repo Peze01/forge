@@ -33,8 +33,8 @@ latency and absent IdP fallback — must be resolved before committing a sprint.
 This feature adds Single Sign-On via OAuth 2.0 to the mortgage advisor portal,
 allowing advisors to authenticate using their existing corporate identity provider
 instead of managing per-app credentials. It eliminates IT support overhead from
-password resets, reduces login friction across Smartr tools, and positions the
-platform for enterprise SSO requirements from lender partners.
+password resets, reduces login friction across tools, and positions the
+platform for enterprise SSO requirements from integration partners.
 
 ### Strengths
 - Token refresh caching at the API gateway eliminates per-request auth latency
