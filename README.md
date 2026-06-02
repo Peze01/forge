@@ -14,11 +14,11 @@ Plain Claude is sycophantic. It validates and builds on what you say rather than
 
 Forge runs Builder first to flesh out the idea, then launches Critic and User Advocate **in parallel** against the expanded concept:
 
-| Subagent | Role |
-|---|---|
-| **Builder** | Extends the idea, surfaces non-obvious angles, estimates effort |
-| **Critic** | Finds weaknesses, risks, and failure modes |
-| **User Advocate** | Challenges from the end user's perspective |
+| Subagent          | Role                                                            |
+| ----------------- | --------------------------------------------------------------- |
+| **Builder**       | Extends the idea, surfaces non-obvious angles, estimates effort |
+| **Critic**        | Finds weaknesses, risks, and failure modes                      |
+| **User Advocate** | Challenges from the end user's perspective                      |
 
 The results are synthesised into a single **IdeaReport** with a confidence score (10–90):
 
@@ -96,6 +96,7 @@ cp -r evals ~/your-project/evals
 ```
 
 > **Already have a `.claude/` directory?** Merge the subdirectories instead of overwriting:
+>
 > ```bash
 > cp -r .claude/commands ~/your-project/.claude/commands
 > cp -r .claude/agents   ~/your-project/.claude/agents
@@ -176,7 +177,7 @@ Evaluates with the `general-brainstorm` skill: business strategy, market fit, in
 After `/forge` produces a report, just reply in natural language:
 
 ```
-The Critic's performance concern doesn't apply here because we validate tokens at 
+The Critic's performance concern doesn't apply here because we validate tokens at
 the edge and cache the result for 15 minutes — auth service never sees per-request load.
 ```
 
@@ -190,15 +191,15 @@ Forge updates the affected section and recalculates confidence. Reasoned rebutta
 
 Assembles a full ticket preview and asks for confirmation before creating anything. You can edit any field (summary, points, labels, description, criteria, notes, risks) or cancel — the IdeaReport stays active until the ticket is actually created. Once you confirm, creates the ticket and clears the session. The Jira fields are:
 
-| Field | Source |
-|---|---|
-| Summary | Idea title, trimmed to ≤100 chars |
-| Description | "What this is" prose, verbatim |
-| Acceptance Criteria | `[blocking]` Drawbacks → "Must resolve: X"; `[resolvable]` → "Should handle: X"; Open questions → "Must clarify before build: X" |
-| Implementation Notes | Strengths rewritten as concrete build actions |
-| Risks & Considerations | User-behaviour challenges → "Risk: X — Mitigation: Y" |
-| Story Points | S=1, M=3, L=5, XL=8 |
-| Labels | `forge`, `{skill-name}` |
+| Field                  | Source                                                                                                                           |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Summary                | Idea title, trimmed to ≤100 chars                                                                                                |
+| Description            | "What this is" prose, verbatim                                                                                                   |
+| Acceptance Criteria    | `[blocking]` Drawbacks → "Must resolve: X"; `[resolvable]` → "Should handle: X"; Open questions → "Must clarify before build: X" |
+| Implementation Notes   | Strengths rewritten as concrete build actions                                                                                    |
+| Risks & Considerations | User-behaviour challenges → "Risk: X — Mitigation: Y"                                                                            |
+| Story Points           | S=1, M=3, L=5, XL=8                                                                                                              |
+| Labels                 | `forge`, `{skill-name}`                                                                                                          |
 
 ## Architecture decisions
 
@@ -210,7 +211,7 @@ Assembles a full ticket preview and asks for confirmation before creating anythi
 
 **Sycophancy guards are named and explicit.** Each agent file has a dedicated `## Sycophancy Guard` section naming the failure mode and what to do instead. This makes the guard auditable and prevents it from being diluted by surrounding instructions.
 
-**Confidence starts at 50, not 80.** The baseline is neutral. The score moves down for weaknesses and up for genuine extensions — most first-round ideas land in the 50–75 range, which reflects realistic uncertainty rather than manufactured optimism.
+**Confidence starts at 60** The baseline is "promising until proven otherwise." The score moves down for blocking weaknesses (−8), resolvable concerns (−1), and user challenges (−2); it moves up for genuine extensions (+4 each) and effort estimates. Most first-round ideas land in the 40–75 range, which reflects realistic uncertainty rather than manufactured optimism.
 
 ## Evaluations
 

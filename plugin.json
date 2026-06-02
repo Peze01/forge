@@ -1,6 +1,6 @@
 {
   "name": "forge",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "Adversarial brainstorming engine for Claude Code. Runs ideas through parallel Builder, Critic, and User Advocate subagents to surface weaknesses before a sprint begins.",
   "commands": [
     {
