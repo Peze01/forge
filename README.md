@@ -213,6 +213,23 @@ Assembles a full ticket preview and asks for confirmation before creating anythi
 
 **Confidence starts at 60** The baseline is "promising until proven otherwise." The score moves down for blocking weaknesses (−8), resolvable concerns (−1), and user challenges (−2); it moves up for genuine extensions (+4 each) and effort estimates. Most first-round ideas land in the 40–75 range, which reflects realistic uncertainty rather than manufactured optimism.
 
+**Confidence formula (auditable arithmetic):**
+
+| Condition | Delta |
+|---|---|
+| Starting baseline | 60 |
+| Each non-trivial Builder extension (max 5 counted) | +4 |
+| Effort: S (Small) | +5 |
+| Effort: M (Medium) | 0 |
+| Effort: L (Large) | −3 |
+| Effort: XL (Extra Large) | −8 |
+| Each `[blocking]` Critic weakness | −8 |
+| Each `[resolvable]` Critic weakness | −1 |
+| Each User Advocate user challenge (max 4 counted) | −2 |
+| **Result** | **Clamp to [10, 90]** |
+
+The formula is deterministic and auditable — anyone can verify the score by reading the agent outputs. See [CLAUDE.md](CLAUDE.md) for calibration details and how this formula evolved from v1.
+
 ## Evaluations
 
 ```bash
